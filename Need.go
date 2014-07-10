@@ -8,24 +8,12 @@ import(
 	"path"
 	"errors"
 	"reflect"
+	//"text/template"
 )
 
 const CONFIG_FILENAME = "ineed.json"
 
-//ineed cmd + ineed config = git cmds
-var	ineedCmdTmpls = map[string][]string{
-	"status" : []string{ "Alias" },
-	"commit" : []string{ "CommitMsg","Alias" },
-	"pull" : []string{ "Alias" },
-	"push" : []string{ "Alias" },
-}
 
-var	gitCmdTmpls = map[string]string{
-	"status" : "git -C {{RepoPath}} status",
-	"commit" : "git -C {{RepoPath}} commit -a -m \"{{CommitMsg}}\"",
-	"pull" : "git -C {{RepoPath}} pull {{Remote}} {{Branch}}",
-	"push" : "git -C {{RepoPath}} push {{Remote}} {{Branch}}",
-}
 
 
 type Need struct{
@@ -84,6 +72,8 @@ func (me * Need) Run(cmdtokens []string) error {
 	me.ParseIneedCmd(&cmdline,cmdtokens)
 	fmt.Printf("%+v",cmdline)
 	for _,val := range me.ConfigInfo.Needs	{
+		me.BindNeedConfigToCmdLine(&cmdline,&val)
+		
 		repopath := path.Clean(me.CurrentPath + "/" + val.Path)
 		fmt.Printf("\n====================================\n%s\n====================================\n",repopath)
 		out, err := exec.Command("git","-C" , repopath , cmdtokens[0]).Output()
@@ -96,4 +86,16 @@ func (me * Need) Run(cmdtokens []string) error {
 	return nil
 }
 
+func (me *Need) CmdLine(cmdline *CmdLine) {
+	//for key,_ := range 
+}
+
+func (me *Need) BindNeedConfigToCmdLine(cmdline *CmdLine,configneed *ConfigNeed) error {
+	
+	cmdline.RepoPath = configneed.Path
+	cmdline.Remote = configneed.Remote
+	cmdline.Branch = configneed.Branch
+	
+	return nil
+}
 
