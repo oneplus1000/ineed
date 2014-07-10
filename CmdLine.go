@@ -27,6 +27,11 @@ type CmdLine struct{
 
 type CmdTmpls map[string]string
 
-func (me * CmdTmpls) GetValByKey(key string) (string,error){
-    return "",nil
+func (me CmdTmpls) GetValByKey(key string) string{
+    for key,val := range me {
+        if key == key {
+            return val
+        }
+    }
+    return ""
 }
