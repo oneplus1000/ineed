@@ -71,26 +71,29 @@ func (me * Need) Run(cmdtokens []string) error {
 
 		var cmdline CmdLine
 		var gitcmd string
+
+		fmt.Printf("AAAA>>>>%+v\n",cmdline)
 		me.ParseIneedCmd(&cmdline,cmdtokens)
 
-		fmt.Printf(">>>>%+v\n",cmdline)
+		fmt.Printf("BBBB>>>>%+v\n",cmdline)
 
 		err = me.BindNeedConfigToCmdLine(&cmdline,&val)
 		if err != nil {
 			return err
 		}
-
+		fmt.Printf("CCCC>>%s\n",cmdline)
 		gitcmd,err = me.CmdLine(&cmdline)
 		if err != nil {
 			return err
 		}
-
+		fmt.Printf("DDDD>>%s\n\n",gitcmd)
 		cmdtokens := strings.Split(gitcmd," ")
 		out, err := exec.Command("git",cmdtokens...).Output()
 		if err != nil {
 			return err
 		}
-		me.Print(gitcmd,string(out))
+		_ = out
+		//me.Print(gitcmd,string(out))
 	}
 
 	return nil
@@ -117,12 +120,14 @@ func (me *Need) CmdLine(cmdline *CmdLine) (string,error) {
 		return "",errors.New("No git command match")
 	}
 
-	//fmt.Printf(">>>>>>cmdTmpl:%s\n",cmdTmpl)
+
 	keyTmpl = cmdline.Cmd
 	tmpl, err = template.New(keyTmpl).Parse(cmdTmpl)
 	if err != nil {
 		return "",err
 	}
+
+	fmt.Printf(">>>>>>keyTmpl: %s , cmdTmpl: %s\n",keyTmpl,cmdTmpl)
 
 	//fmt.Printf("******cmdTmpl:%s\n",cmdTmpl)
 	buff := new(bytes.Buffer)
