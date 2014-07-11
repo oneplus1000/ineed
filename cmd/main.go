@@ -11,7 +11,7 @@ func main(){
 	if err != nil {
 		fmt.Printf("error:%s\n",err.Error())
 	}
-	err = n.Run([]string{"status","Test01"})
+	err = n.Run([]string{"status"})
 	if err != nil {
 		fmt.Printf("error:%s\n",err.Error())
 	}

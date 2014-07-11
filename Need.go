@@ -8,13 +8,12 @@ import(
 	"path"
 	"errors"
 	"reflect"
-	//"text/template"
+	"text/template"
+	"bytes"
+	"strings"
 )
 
 const CONFIG_FILENAME = "ineed.json"
-
-
-
 
 type Need struct{
 	CurrentPath string
@@ -22,13 +21,13 @@ type Need struct{
 }
 
 func (me * Need) Init(currentPath string) error {
+
 	me.CurrentPath = currentPath
 	fileconfig := currentPath + "/" + CONFIG_FILENAME
 	data,err := ioutil.ReadFile(fileconfig)
 	if err != nil {
 		return err
 	}
-	//fmt.Printf("%s\n",string(data))
 	err = json.Unmarshal(data,&me.ConfigInfo)
 	if err != nil {
 		return err
@@ -37,19 +36,17 @@ func (me * Need) Init(currentPath string) error {
 }
 
 func (me * Need) ParseIneedCmd(cmdline *CmdLine,cmdtokens []string) error{
-	var cmdKey string 
-	var cmdTmpl []string
-	for key,val := range ineedCmdTmpls {
-		if key == cmdtokens[0] {
-			cmdKey = key
-			cmdTmpl = val
-			break
-		}
-	} 
-	
-	if cmdKey == "" {
+
+	var cmdKey string
+	var cmdPattern []string
+
+	var isContain bool
+	isContain,cmdPattern =  ineedCmdPatterns.GetValByKey(cmdtokens[0])
+	if !isContain {
 		return errors.New("No ineed command match")
 	}
+	cmdKey = cmdtokens[0]
+
 	refl :=	reflect.ValueOf(cmdline).Elem()
 	for i,val := range cmdtokens {
 		if i == 0 {
@@ -57,7 +54,7 @@ func (me * Need) ParseIneedCmd(cmdline *CmdLine,cmdtokens []string) error{
 			continue
 		}
 		index := i - 1
-		param := cmdTmpl[index]
+		param := cmdPattern[index]
 		objparam := refl.FieldByName(param)
 		if objparam.IsValid() && objparam.CanSet() {
 			objparam.SetString(val)
@@ -67,32 +64,83 @@ func (me * Need) ParseIneedCmd(cmdline *CmdLine,cmdtokens []string) error{
 }
 
 func (me * Need) Run(cmdtokens []string) error {
-		
-	var cmdline CmdLine
-	me.ParseIneedCmd(&cmdline,cmdtokens)
-	fmt.Printf("%+v",cmdline)
+
+	var err error
+
 	for _,val := range me.ConfigInfo.Needs	{
-		me.BindNeedConfigToCmdLine(&cmdline,&val)
-		
-		repopath := path.Clean(me.CurrentPath + "/" + val.Path)
-		fmt.Printf("\n====================================\n%s\n====================================\n",repopath)
-		out, err := exec.Command("git","-C" , repopath , cmdtokens[0]).Output()
+
+		var cmdline CmdLine
+		var gitcmd string
+		me.ParseIneedCmd(&cmdline,cmdtokens)
+
+		fmt.Printf(">>>>%+v\n",cmdline)
+
+		err = me.BindNeedConfigToCmdLine(&cmdline,&val)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%s\n",out)
+
+		gitcmd,err = me.CmdLine(&cmdline)
+		if err != nil {
+			return err
+		}
+
+		cmdtokens := strings.Split(gitcmd," ")
+		out, err := exec.Command("git",cmdtokens...).Output()
+		if err != nil {
+			return err
+		}
+		me.Print(gitcmd,string(out))
 	}
 
 	return nil
 }
 
-func (me *Need) CmdLine(cmdline *CmdLine) {
-	//for key,_ := range 
+
+func (me *Need) Print(gitcmd string,outOk string){
+	fmt.Printf("\n===================================================================\n")
+	fmt.Printf("git %s",gitcmd)
+	fmt.Printf("\n===================================================================\n")
+	fmt.Printf("%s\n",outOk)
+}
+
+func (me *Need) CmdLine(cmdline *CmdLine) (string,error) {
+
+	var isContain bool
+	var cmdTmpl string
+	var keyTmpl string
+	var err error
+	var tmpl *template.Template
+
+	isContain,cmdTmpl =	gitCmdTmpls.GetValByKey(cmdline.Cmd)
+	if ! isContain {
+		return "",errors.New("No git command match")
+	}
+
+	//fmt.Printf(">>>>>>cmdTmpl:%s\n",cmdTmpl)
+	keyTmpl = cmdline.Cmd
+	tmpl, err = template.New(keyTmpl).Parse(cmdTmpl)
+	if err != nil {
+		return "",err
+	}
+
+	//fmt.Printf("******cmdTmpl:%s\n",cmdTmpl)
+	buff := new(bytes.Buffer)
+	err = tmpl.Execute(buff,cmdline)
+	if err != nil {
+		return "",err
+	}
+	//fmt.Printf(">>>>>>%s %+v\n",buff.String(),cmdline)
+	return buff.String(),nil
 }
 
 func (me *Need) BindNeedConfigToCmdLine(cmdline *CmdLine,configneed *ConfigNeed) error {
-	
-	cmdline.RepoPath = configneed.Path
+
+	cmdline.RepoPath = path.Clean(me.CurrentPath + "/" + configneed.Path)
+	if cmdline.RepoPath == "" {
+		cmdline.RepoPath = "./"
+	}
+
 	cmdline.Remote = configneed.Remote
 	cmdline.Branch = configneed.Branch
 	
