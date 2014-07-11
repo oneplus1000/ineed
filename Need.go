@@ -95,12 +95,9 @@ func (me * Need) Run(cmdtokens []string) error {
 		me.PrintHeader(gitcmd+"     # "+val.Alias+"")
 		//fmt.Printf("DDDD>>%s\n\n",gitcmd)
 		cmdtokens := strings.Split(gitcmd," ")
-		out, err := exec.Command("git",cmdtokens...).Output()
-		if err != nil {
-			return err
-		}
-		//_ = out
+		out, _ := exec.Command("git",cmdtokens...).Output()
 		me.Print(string(out))
+
 	}
 
 	return nil
