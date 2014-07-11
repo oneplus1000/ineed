@@ -37,73 +37,85 @@ func (me * Need) Init(currentPath string) error {
 
 func (me * Need) ParseIneedCmd(cmdline *CmdLine,cmdtokens []string) error{
 
-	var cmdKey string
+	//var cmdKey string
 	var cmdPattern []string
 
 	var isContain bool
-	isContain,cmdPattern =  ineedCmdPatterns.GetValByKey(cmdtokens[0])
+	isContain,cmdPattern =  ineedCmdPatterns.GetValByKey(cmdtokens[1])
 	if !isContain {
 		return errors.New("No ineed command match")
 	}
-	cmdKey = cmdtokens[0]
+
 
 	refl :=	reflect.ValueOf(cmdline).Elem()
 	for i,val := range cmdtokens {
-		if i == 0 {
-			cmdline.Cmd = cmdKey
-			continue
-		}
-		index := i - 1
+		index := i
 		param := cmdPattern[index]
 		objparam := refl.FieldByName(param)
 		if objparam.IsValid() && objparam.CanSet() {
 			objparam.SetString(val)
 		}
 	}
+	//fmt.Printf(">>>%s\n",cmdline)
 	return nil
 }
 
 func (me * Need) Run(cmdtokens []string) error {
 
+	//fmt.Printf("=================\n")
 	var err error
-
 	for _,val := range me.ConfigInfo.Needs	{
 
 		var cmdline CmdLine
 		var gitcmd string
 
-		fmt.Printf("AAAA>>>>%+v\n",cmdline)
-		me.ParseIneedCmd(&cmdline,cmdtokens)
-
-		fmt.Printf("BBBB>>>>%+v\n",cmdline)
+		//fmt.Printf("AAAA>>>>%+v\n",cmdline)
+		err = me.ParseIneedCmd(&cmdline,cmdtokens)
+		if err != nil {
+			return err
+		}
+		//fmt.Printf("BBBB>>>>%+v\n",cmdline)
 
 		err = me.BindNeedConfigToCmdLine(&cmdline,&val)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("CCCC>>%s\n",cmdline)
+
+		if cmdline.Alias != "-all" {
+			if strings.ToLower(cmdline.Alias)!= strings.ToLower(val.Alias) {
+				continue
+			}
+		}
+
 		gitcmd,err = me.CmdLine(&cmdline)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("DDDD>>%s\n\n",gitcmd)
+
+		me.PrintHeader(gitcmd+"     # "+val.Alias+"")
+		//fmt.Printf("DDDD>>%s\n\n",gitcmd)
 		cmdtokens := strings.Split(gitcmd," ")
 		out, err := exec.Command("git",cmdtokens...).Output()
 		if err != nil {
 			return err
 		}
-		_ = out
-		//me.Print(gitcmd,string(out))
+		//_ = out
+		me.Print(string(out))
 	}
 
 	return nil
 }
 
+func (me *Need) PrintHeader(gitcmd string){
 
-func (me *Need) Print(gitcmd string,outOk string){
-	fmt.Printf("\n===================================================================\n")
+	fmt.Printf("\n========================================================================\n")
 	fmt.Printf("git %s",gitcmd)
-	fmt.Printf("\n===================================================================\n")
+	fmt.Printf("\n========================================================================\n")
+
+}
+
+func (me *Need) Print(outOk string){
+
 	fmt.Printf("%s\n",outOk)
 }
 
@@ -127,7 +139,7 @@ func (me *Need) CmdLine(cmdline *CmdLine) (string,error) {
 		return "",err
 	}
 
-	fmt.Printf(">>>>>>keyTmpl: %s , cmdTmpl: %s\n",keyTmpl,cmdTmpl)
+	//fmt.Printf(">>>>>>keyTmpl: %s , cmdTmpl: %s\n",keyTmpl,cmdTmpl)
 
 	//fmt.Printf("******cmdTmpl:%s\n",cmdTmpl)
 	buff := new(bytes.Buffer)
